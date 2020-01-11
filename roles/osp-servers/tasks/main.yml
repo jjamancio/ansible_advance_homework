@@ -1,5 +1,4 @@
 ---
-  - include_tasks: tasks/frontend.yml
-  - include_tasks: tasks/app1.yml
-  - include_tasks: tasks/app2.yml
-  - include_tasks: tasks/db.yml
+- name: Create Servers
+  include_tasks: create_servers.yml
+  with_dict: "{{ osp_servers }}"
