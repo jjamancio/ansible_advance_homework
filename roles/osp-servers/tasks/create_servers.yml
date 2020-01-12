@@ -3,37 +3,34 @@
 - name:  Create new server instances and attaches them a network and passes metadata to the instance
   os_server:
     cloud: ospcloud
-    flavor: "{{ item.value.flavor }}"
-    name: "{{ item.key }}"
-    image: "{{ item.value.image }}"
-    network: int_network
-    security_groups: "{{ item.value.security_group }}"
-    key_name:  "{{ item.value.key_name }}"
-    meta: "{{ item.value.meta[0] }}"
-    state: "{{ item.value.state }}"
+    name: "{{ item.0.name }}"
+    flavor: "{{ item.0.flavor }}"
+    key_name: "{{ item.0.key_name }}"
+    image: "{{ item.0.image }}"
+    nics:
+      - net-name: int_network
+    security_groups: "{{ item.0.security_group }}"
+    meta: "{{ item.1 }}"
     userdata: |
-        #!/bin/bash
-        curl -o /tmp/openstack.pub http://www.opentlc.com/download/ansible_bootcamp/openstack_keys/openstack.pub
-        cat /tmp/openstack.pub >> /home/cloud-user/.ssh/authorized_keys
-        curl -o /tmp/internal.repo http://www.opentlc.com/download/ansible_bootcamp/repo/internal.repo
-        cp /tmp/internal.repo /etc/yum.repos.d/internal.repo
-  tags: osp_instance
+      #!/bin/bash
+      curl -o /tmp/openstack.pub http://www.opentlc.com/download/ansible_bootcamp/openstack_keys/openstack.pub
+      cat /tmp/openstack.pub >> /home/cloud-user/.ssh/authorized_keys
+      curl -o /tmp/internal.repo http://www.opentlc.com/download/ansible_bootcamp/repo/internal.repo
+      cp /tmp/internal.repo /etc/yum.repos.d/internal.repo
+  with_subelements:
+    - "{{osp_servers}}"
+    - meta
 
 - name: Add floating IP to Servers
   os_floating_ip:
     cloud: ospcloud
-    server: "{{ item.key }}"
+    server: "{{ item.value.name }}"
     network: ext_network
-    state: "{{ item.value.state }}"
-    reuse: yes
-    wait: true
-    timeout: 180
-  register: instancefloatingip
-  tags: osp_instance 
-
-- name: Show "{{ item.key }}" public IP
-  debug: var=instancefloatingip.floating_ip.floating_ip_address
+    state: present
+    timeout: 300
+    wait: yes
+  with_dict: "{{osp_servers}}"
 
 - name: Wait for "{{ item.key }}" to be available
   wait_for_connection:
-    timeout: 900
+    timeout: 600
