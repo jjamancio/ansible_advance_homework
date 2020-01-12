@@ -1,4 +1,37 @@
 ---
-- name: Create Servers
-  include_tasks: create_servers.yml
-  with_dict: "{{ osp_servers }}"
+
+# tasks file for osp.servers
+- name: Create new server instances and attaches them a network and passes metadata to the instance
+  os_server:
+    cloud: ospcloud
+    name: "{{ item.0.name }}"
+    flavor: "{{ item.0.flavor }}"
+    key_name: "{{ item.0.key_name }}"
+    image: "{{ item.0.image }}"
+    nics:
+      - net-name: int_network
+    security_groups: "{{ item.0.security_group }}"
+    meta: "{{ item.1 }}"
+    userdata: |
+      #!/bin/bash
+      curl -o /tmp/openstack.pub http://www.opentlc.com/download/ansible_bootcamp/openstack_keys/openstack.pub
+      cat /tmp/openstack.pub >> /home/cloud-user/.ssh/authorized_keys
+      curl -o /tmp/internal.repo http://www.opentlc.com/download/ansible_bootcamp/repo/internal.repo
+      cp /tmp/internal.repo /etc/yum.repos.d/internal.repo
+  with_subelements:
+    - "{{osp_servers}}"
+    - meta
+
+- name: Add floating IP to Servers
+  os_floating_ip:
+    cloud: ospcloud
+    server: "{{ item.value.name }}"
+    network: ext_network
+    state: present
+    timeout: 300
+    wait: yes
+  with_dict: "{{osp_servers}}"
+
+- name: Wait for server to be available
+  wait_for_connection:
+    timeout: 600
